@@ -1,0 +1,10 @@
+pics*
+flagged
+.idea
+.ipynb_checkpoints
+*.pth
+resources
+test_res
+ovseg_swinbase_vitL14_ft_mpt.pth
+*/__pycache__
+aaa

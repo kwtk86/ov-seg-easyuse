@@ -1,6 +1,7 @@
 # OV-SEG-EASYUSE
 
-A modified version of [https://github.com/facebookresearch/ov-seg](ov-seg) for image segmentation
+A modified version of [https://github.com/facebookresearch/ov-seg](ov-seg) for image segmentation.
+
 Some code added or modified for run segmentation for images easily, without making configurations.
 
 # Getting started

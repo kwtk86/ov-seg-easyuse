@@ -7,4 +7,5 @@ resources
 test_res
 ovseg_swinbase_vitL14_ft_mpt.pth
 */__pycache__
+__pycache__
 aaa

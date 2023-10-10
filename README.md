@@ -1,14 +1,11 @@
----
-title: Ov Seg
-emoji: 📊
-colorFrom: red
-colorTo: pink
-sdk: gradio
-sdk_version: 3.8.2
-python_version: 3.8
-app_file: app.py
-pinned: false
-license: cc-by-nc-4.0
----
+# OV-SEG-EASYUSE
 
-Check out the configuration reference at https://huggingface.co/docs/hub/spaces-config-reference
+A modified version of [https://github.com/facebookresearch/ov-seg](ov-seg) for image segmentation
+Some code added or modified for run segmentation for images easily, without making configurations.
+
+# Getting started
+``` bash
+git clone https://github.com/kwtk86/ov-seg-easyuse
+cd ov-seg-easyuse
+```
+ And then modified run seg.py

@@ -8,9 +8,7 @@ import multiprocessing as mp
 import numpy as np
 from PIL import Image
 import os
-import time
-
-
+from typing import Tuple
 
 from detectron2.config import get_cfg
 
@@ -18,12 +16,14 @@ from detectron2.projects.deeplab import add_deeplab_config
 from detectron2.data.detection_utils import read_image
 from open_vocab_seg import add_ovseg_config
 from open_vocab_seg.utils import VisualizationDemo
-import glob
 
 
 # ckpt_url = 'https://drive.google.com/uc?id=1cn-ohxgXDrDfkzC1QdO-fi8IjbjXmgKy'
 # output = './ovseg_swinbase_vitL14_ft_mpt.pth'
 # gdown.download(ckpt_url, output, quiet=False)
+
+
+__all__ = ['OvSegEasyuse']
 
 def setup_cfg(config_file):
     # load config from file and command-line arguments
@@ -34,74 +34,67 @@ def setup_cfg(config_file):
     cfg.freeze()
     return cfg
 
-class SegDef:
-    def __init__(self, classes: str) -> None:
-        pass
-
-    def inference(self, img) -> np.ndarray:
-        pass
-
-mp.set_start_method("spawn", force=True)
-config_file = './ovseg_swinB_vitL_demo.yaml'
-cfg = setup_cfg(config_file)
-demo = VisualizationDemo(cfg)
-
-
-
-def inference(img, classes):
-    class_names = classes.split(',')
-    seg_mask = demo.run_on_image(img, class_names)
-    return seg_mask
-
-def save_mask(mask, out_path):
-    out_img = np.empty((mask.shape[0], mask.shape[1], 3))
-    out_img[mask==255] = [0,0,0]
-    out_img[mask==0] = [128,0,0] # 这里可以做映射表，但20230826没做
-    out_img[mask==1] = [128,0,0] # 这里可以做映射表，但20230826没做
-    out_img[mask==2] = [0,0,128] # 这里可以做映射表，但20230826没做
-    out_img[mask==3] = [0,128,0] # 这里可以做映射表，但20230826没做
-    out_img = Image.fromarray(np.uint8(out_img)).convert('RGB')
-    out_img.save(out_path)
-
-def mask_oriimg(ori, mask, out_path):
-    ori2 = ori.copy().astype(np.float16)
-    ori2[mask==255]*=0.1
-    ori2[mask==2]*=0.25
-    ori2[mask==3]*=0.4
-    ori2[mask==4]*=0.4
-    out_img = Image.fromarray(np.uint8(ori2)).convert('RGB')
-    out_img.save(out_path)
+class OvSegEasyuse:
+    def __init__(self,
+                 class_definition: dict,
+                 cfg_file: str = './ovseg_swinB_vitL_demo.yaml', 
+                 ) -> None:
+        assert len(class_definition) < 255, '一次性最多输入254个类别'
+        self.class_names, self.class_colors = [], []
+        for k, v in class_definition.items():
+            self.class_names.append(k.strip())
+            assert isinstance(v, list) and len(v) == 3, '颜色必须是长度为3的列表'
+            self.class_colors.append(np.array(v))
+        mp.set_start_method("spawn", force=True)
+        cfg = setup_cfg(cfg_file)
+        self.__demo = VisualizationDemo(cfg)
 
 
-for pic in glob.glob('./pics4-p/*/*.png'):
-    st = time.time()
-    # building
-    out_path = pic.replace('./pics4-p', './picsoutbs-p')
-    out_dir = os.path.dirname(out_path)
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir)
+    def inference_and_save(self, 
+                           img_path: str, 
+                           out_path: str,
+                           masked_input_path: str = None) -> np.ndarray:
+        mask, img = self.inference(img_path, return_img = True)
+        self.save_mask(mask, out_path)
+        if masked_input_path:
+            self.save_masked_input(mask, img, masked_input_path)
+        return mask
 
-    img = read_image(pic, format="BGR")
-    mask = inference(img, 'building,house,sky,plants')
-    # mask_oriimg(img[:,:,::-1], mask, out_path)
-    save_mask(mask, out_path)
-    # sky
-    # out_path = pic.replace('./pics4', './picsouts')
-    # out_dir = os.path.dirname(out_path)
-    # if not os.path.exists(out_dir):
-    #     os.makedirs(out_dir)
+    def save_masked_input(self, 
+                          mask: np.ndarray, 
+                          img: np.ndarray, 
+                          out_path: str) -> None:
+        out_dir = os.path.dirname(out_path)
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
+        img = img[:,:,::-1].copy()
+        for i, (class_name, class_color) in enumerate(zip(self.class_names, self.class_colors)):
+            indices = (mask == i)
+            img[indices] = img[indices]*0.5 + class_color*0.5 
+        img = Image.fromarray(np.uint8(img)).convert('RGB')
+        img.save(out_path)
 
-    # img = read_image(pic, format="BGR")
-    # mask = inference(img, 'sky')
-    # save_mask(mask, out_path)
-    # # plants
-    # out_path = pic.replace('./pics4', './picsoutp')
-    # out_dir = os.path.dirname(out_path)
-    # if not os.path.exists(out_dir):
-    #     os.makedirs(out_dir)
 
-    # img = read_image(pic, format="BGR")
-    # mask = inference(img, 'plants')
-    # save_mask(mask, out_path)
-
-    print(pic, time.time() - st)
+    def inference(self, 
+                  img_path: str,
+                  return_img: bool = False) -> np.ndarray or Tuple[np.ndarray, np.ndarray]:
+        assert os.path.exists(img_path), f"{img_path} 不存在"
+        img = read_image(img_path, format="BGR")
+        seg_mask = self.__demo.run_on_image(img, self.class_names)
+        if return_img:
+            return seg_mask, img
+        else:
+            return seg_mask
+    
+    def save_mask(self, 
+                  mask: np.ndarray, 
+                  out_path: str) -> None:
+        out_img = np.empty((mask.shape[0], mask.shape[1], 3))
+        out_img[mask==255] = [0,0,0]
+        out_dir = os.path.dirname(out_path)
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
+        for i, (class_name, class_color) in enumerate(zip(self.class_names, self.class_colors)):
+            out_img[mask == i] = class_color
+        out_img = Image.fromarray(np.uint8(out_img)).convert('RGB')
+        out_img.save(out_path)

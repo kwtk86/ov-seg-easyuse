@@ -54,14 +54,14 @@ class OvSegEasyuse:
                            img_path: str, 
                            out_path: str,
                            masked_input_path: str = None) -> np.ndarray:
-        mask, img = self.inference(img_path, return_img = True)
-        self.save_mask(mask, out_path)
+        seg, img = self.inference(img_path, return_img = True)
+        self.save_seg(seg, out_path)
         if masked_input_path:
-            self.save_masked_input(mask, img, masked_input_path)
-        return mask
+            self.save_masked_input(seg, img, masked_input_path)
+        return seg
 
     def save_masked_input(self, 
-                          mask: np.ndarray, 
+                          seg: np.ndarray, 
                           img: np.ndarray, 
                           out_path: str) -> None:
         out_dir = os.path.dirname(out_path)
@@ -69,7 +69,7 @@ class OvSegEasyuse:
             os.makedirs(out_dir)
         img = img[:,:,::-1].copy()
         for i, (class_name, class_color) in enumerate(zip(self.class_names, self.class_colors)):
-            indices = (mask == i)
+            indices = (seg == i)
             img[indices] = img[indices]*0.5 + class_color*0.5 
         img = Image.fromarray(np.uint8(img)).convert('RGB')
         img.save(out_path)
@@ -80,21 +80,21 @@ class OvSegEasyuse:
                   return_img: bool = False) -> np.ndarray or Tuple[np.ndarray, np.ndarray]:
         assert os.path.exists(img_path), f"{img_path} 不存在"
         img = read_image(img_path, format="BGR")
-        seg_mask = self.__demo.run_on_image(img, self.class_names)
+        seg = self.__demo.run_on_image(img, self.class_names)
         if return_img:
-            return seg_mask, img
+            return seg, img
         else:
-            return seg_mask
+            return seg
     
-    def save_mask(self, 
-                  mask: np.ndarray, 
+    def save_seg(self, 
+                  seg: np.ndarray, 
                   out_path: str) -> None:
-        out_img = np.empty((mask.shape[0], mask.shape[1], 3))
-        out_img[mask==255] = [0,0,0]
+        out_img = np.empty((seg.shape[0], seg.shape[1], 3))
+        out_img[seg==255] = [0,0,0]
         out_dir = os.path.dirname(out_path)
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
         for i, (class_name, class_color) in enumerate(zip(self.class_names, self.class_colors)):
-            out_img[mask == i] = class_color
+            out_img[seg == i] = class_color
         out_img = Image.fromarray(np.uint8(out_img)).convert('RGB')
         out_img.save(out_path)
